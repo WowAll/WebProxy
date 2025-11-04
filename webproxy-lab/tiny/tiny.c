@@ -98,9 +98,6 @@ void read_requesthdrs(rio_t *rp, char *buf)
     Rio_readlineb(rp, buf, MAXLINE);
     printf("%s", buf);
   }
-  printf("--------------------------------\n");
-  printf("--------------------------------\n");
-  printf("--------------------------------\n");
 }
 
 /* URI를 파싱하여 정적 콘텐츠인지 동적 콘텐츠인지 판단 */
@@ -138,6 +135,8 @@ void get_filetype(char *filename, char *filetype)
     strcpy(filetype, "text/html");
   else if (strstr(filename, ".gif"))
     strcpy(filetype, "image/gif");
+  else if (strstr(filename, ".jpg"))
+    strcpy(filetype, "image/jpg");
   else if (strstr(filename, ".png"))
     strcpy(filetype, "image/png");
   else if (strstr(filename, ".mpg"))
@@ -150,7 +149,6 @@ void serve_static(int fd, char *filename, int filesize, char *method)
 {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
-  struct stat sbuf;
 
   /* 파일 타입 추출 */
   get_filetype(filename, filetype);
@@ -167,18 +165,16 @@ void serve_static(int fd, char *filename, int filesize, char *method)
   printf("Response headers:\n");
   printf("%s", buf);
 
-  if (strcmp(method, "HEAD") == 0)
+  if (strcasecmp(method, "HEAD") == 0)
     return;
-
+  
   /* 클라이언트에 파일 전송 */
   srcfd = Open(filename, O_RDONLY, 0);
-  filesize = fstat(srcfd, &sbuf);
 
-  srcp = (char *)malloc(sbuf.st_size);
-  Rio_readn(srcfd, srcp, sbuf.st_size);
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
   Close(srcfd);
-  Rio_writen(fd, srcp, sbuf.st_size);
-  free(srcp);
+  Rio_writen(fd, srcp, filesize);
+  Munmap(srcp, filesize);
 }
 
 /* 동적 콘텐츠 서비스 */
@@ -195,18 +191,20 @@ void serve_dynamic(int fd, char *filename, char *cgiargs, char *method)
   Rio_writen(fd, buf, strlen(buf));
   
 
-  if (strcmp(method, "HEAD") == 0)
+  if (strcasecmp(method, "HEAD") == 0)
     return;
 
   /* 자식 프로세스 생성 */
   if (Fork() == 0) {
     setenv("QUERY_STRING", cgiargs, 1);
+
     /* 표준 출력 리다이렉션 */
     Dup2(fd, STDOUT_FILENO);
+
     /* 프로그램 실행 */
     Execve(filename, emptylist, environ);
   }
-  /* 자식 프로세스 비동기 처리 */
+  
   wait(NULL);
 }
 
