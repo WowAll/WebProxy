@@ -95,7 +95,6 @@ void handle_request(int clientfd) {
       break;
   }
 
-  printf("Fuck the proxy\n");
   handle_response(clientfd, serverfd);
 }
 
