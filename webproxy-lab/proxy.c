@@ -114,6 +114,9 @@ int main(int argc, char **argv)
 
   listenfd = Open_listenfd(argv[1]);
   clientlen = sizeof(clientaddr);
+
+  signal(SIGCHLD, signal_handler);
+  
   while (1) {
     clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
     if (Fork() == 0) {
