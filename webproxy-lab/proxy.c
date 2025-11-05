@@ -13,6 +13,13 @@ static const char *user_agent_hdr =
     "Firefox/10.0.3\r\n";
 
 
+void signal_handler(int aig)
+{
+  while (waitpid(-1, 0, WNOHANG) > 0)
+    ;
+  return;
+}
+
 void parse_url(const char *url, char *hostname, char *hostport, char* uri) {
   const char *p = url;
 
@@ -55,8 +62,6 @@ void handle_response(int clientfd, int serverfd) {
   Rio_readinitb(&rio, serverfd);
   while((n = Rio_readnb(&rio, buf, MAXLINE)) > 0)
     Rio_writen(clientfd, buf, n);
-
-  Close(serverfd);
 }
 
 void handle_request(int clientfd) {
@@ -77,9 +82,7 @@ void handle_request(int clientfd) {
   strcpy(buf, "GET ");
   strcat(buf, uri);
   strcat(buf, " HTTP/1.1\r\n");
-  Rio_writen(serverfd, buf, strlen(buf)); // 수정필요
-
-  printf("Fuck the proxy\n");
+  Rio_writen(serverfd, buf, strlen(buf));
 
   while(Rio_readlineb(&rio, buf, MAXLINE) > 0) {
     printf("%s", buf);
@@ -97,8 +100,9 @@ void handle_request(int clientfd) {
       break;
   }
 
-  printf("Fuck the proxy\n");
   handle_response(clientfd, serverfd);
+
+  Close(serverfd);
 }
 
 int main(int argc, char **argv)
@@ -106,14 +110,17 @@ int main(int argc, char **argv)
   int listenfd, clientfd;
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-  char client_hostname[MAXLINE], client_port[MAXLINE];
 
   listenfd = Open_listenfd(argv[1]);
   clientlen = sizeof(clientaddr);
-  while (clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen)) {
-    Getnameinfo((SA *)&clientaddr, clientlen, client_hostname, MAXLINE, client_port, MAXLINE, 0);
-    printf("Accepted connection from (%s, %s)\n", client_hostname, client_port);
-    handle_request(clientfd);
+  while (1) {
+    clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+    if (Fork() == 0) {
+      Close(listenfd);
+      handle_request(clientfd);
+      Close(clientfd);
+      exit(0);
+    }
     Close(clientfd);
   }
   Close(listenfd);
