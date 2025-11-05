@@ -59,7 +59,10 @@ void handle_response(int clientfd, int serverfd) {
   Close(serverfd);
 }
 
-void handle_request(int clientfd) {
+void* handle_request(void* argp) {
+  int clientfd = *((int *)argp);
+  Free(argp);
+  Pthread_detach(Pthread_self());
   char buf[MAXLINE], method[MAXLINE], url[MAXLINE], version[MAXLINE], hostname[MAXLINE], hostport[MAXLINE], uri[MAXLINE];
   rio_t rio;
 
@@ -94,22 +97,23 @@ void handle_request(int clientfd) {
     if (strcmp(buf, "\r\n") == 0)
       break;
   }
-
   handle_response(clientfd, serverfd);
+  Close(clientfd);
+  return NULL;
 }
 
 int main(int argc, char **argv)
 {
-  int listenfd, clientfd;
+  int listenfd, *clientfdp;
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-
+  pthread_t tid;
   listenfd = Open_listenfd(argv[1]);
   clientlen = sizeof(clientaddr);
   while (1) {
-    clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-    handle_request(clientfd);
-    Close(clientfd);
+    clientfdp = (int *)Malloc(sizeof(int));
+    *clientfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+    Pthread_create(&tid, NULL, handle_request, clientfdp);
   }
   Close(listenfd);
   exit(0);
