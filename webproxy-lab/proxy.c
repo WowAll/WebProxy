@@ -15,9 +15,10 @@ static const char *user_agent_hdr =
 
 void signal_handler(int aig)
 {
-  while (waitpid(-1, 0, WNOHANG) > 0)
-    ;
-  return;
+  while (1){
+    if (waitpid(-1, 0, WNOHANG) <= 0)
+      break;
+  }
 }
 
 void parse_url(const char *url, char *hostname, char *hostport, char* uri) {
