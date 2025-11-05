@@ -77,9 +77,7 @@ void handle_request(int clientfd) {
   strcpy(buf, "GET ");
   strcat(buf, uri);
   strcat(buf, " HTTP/1.1\r\n");
-  Rio_writen(serverfd, buf, strlen(buf)); // 수정필요
-
-  printf("Fuck the proxy\n");
+  Rio_writen(serverfd, buf, strlen(buf));
 
   while(Rio_readlineb(&rio, buf, MAXLINE) > 0) {
     printf("%s", buf);
@@ -106,13 +104,11 @@ int main(int argc, char **argv)
   int listenfd, clientfd;
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-  char client_hostname[MAXLINE], client_port[MAXLINE];
 
   listenfd = Open_listenfd(argv[1]);
   clientlen = sizeof(clientaddr);
-  while (clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen)) {
-    Getnameinfo((SA *)&clientaddr, clientlen, client_hostname, MAXLINE, client_port, MAXLINE, 0);
-    printf("Accepted connection from (%s, %s)\n", client_hostname, client_port);
+  while (1) {
+    clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
     handle_request(clientfd);
     Close(clientfd);
   }
